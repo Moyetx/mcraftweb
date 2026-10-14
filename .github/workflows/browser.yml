@@ -1,0 +1,31 @@
+name: Browser and WebAssembly
+on:
+  push:
+    branches: ["codex/voxel-core-repair", "main"]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: voxel-tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: voxel-atlas-html-and-validation
+          path: |
+            dist/
+            test-results/
+          retention-days: 14
