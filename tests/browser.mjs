@@ -72,7 +72,7 @@ try{
    ok(player.z-10.5>walk*1.2,"Sprint not faster");
   });
   check("Swimming breath is independent of hunger; drowning after air expires",()=>{
-   reset();for(let y=6;y<=8;y++)vox.set(10,y,10,8);foodClock=25;
+   reset();for(let y=6;y<=8;y++)vox.set(10,y,10,8);foodClock=20;
    for(let i=0;i<120;i++){damageCooldown=0;updatePlayer(1/60);}
    ok(health===20&&breath>7,"Early drowning");
    for(let i=0;i<600;i++){damageCooldown=0;updatePlayer(1/60);}

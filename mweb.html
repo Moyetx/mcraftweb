@@ -37,7 +37,7 @@ button:disabled{opacity:.45;cursor:default}
 .slotno{position:absolute;top:2px;left:4px;font-size:11px;opacity:.8}
 .count{position:absolute;right:4px;bottom:2px;font-size:12px}
 #selected{text-align:center;margin-top:7px;font-size:14px}
-#hint{position:absolute;bottom:122px;left:50%;transform:translateX(-50%);font-size:13px;text-align:center;white-space:nowrap;opacity:.9}
+#hint{position:absolute;bottom:154px;left:50%;transform:translateX(-50%);font-size:13px;text-align:center;white-space:nowrap;opacity:.9}
 #toast{position:absolute;top:100px;left:50%;transform:translateX(-50%);max-width:90%;padding:10px 16px;border-radius:4px;background:#102820e8;opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
 .overlay{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:linear-gradient(125deg,#081619bc,#10251f66);backdrop-filter:blur(5px)}
 .panel{width:min(100%,650px);max-height:92dvh;overflow:auto;background:#112c25ed;border:1px solid #6a907772;box-shadow:0 24px 100px #0006;padding:32px;border-radius:10px}
@@ -1459,6 +1459,7 @@ function toast(s){
 }
 function updateHud(){
  const creative=mode==="creative"||mode==="spectator";
+ $("stats").style.display=creative?"none":"flex";
  $("descend").style.display=flying?"block":"none";
  $("crouch").style.display=flying?"none":"block";
  $("jump").textContent=flying?"Subir":"Saltar";

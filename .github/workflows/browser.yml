@@ -1,7 +1,7 @@
 name: Browser and WebAssembly
 on:
   push:
-    branches: ["codex/voxel-core-repair", "main"]
+    branches: ["main"]
   pull_request:
 permissions:
   contents: read
