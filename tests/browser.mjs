@@ -134,6 +134,8 @@ try{
  physics.forEach(name=>record(name));
  // Exercise the actual keyboard and pointer event handlers against a controlled world.
  await page.evaluate(()=>{
+  settings.shaders=0;viewDistance=32;
+  document.getElementById("view").style.width="480px";document.getElementById("view").style.height="320px";
   mode="creative";running=true;menuOpen=false;invOpen=false;flying=false;
   player={x:30.5,y:6,z:30.5,yaw:0,pitch:0,vy:0};resetMotion();
  });
@@ -143,8 +145,8 @@ try{
  await page.keyboard.press("Space");await page.keyboard.press("Space");
  assert.equal(await page.evaluate(()=>flying),false);
  await page.keyboard.press("w");await page.keyboard.down("w");
- await page.waitForTimeout(100);
- assert.equal(await page.evaluate(()=>sprinting&&sprintLatch),true);
+ await page.waitForFunction(()=>sprinting,{},{timeout:3000});
+ assert.deepEqual(await page.evaluate(()=>({running,sprinting,sprintLatch,key:keys.KeyW})),{running:true,sprinting:true,sprintLatch:true,key:true});
  await page.keyboard.up("w");
  assert.equal(await page.evaluate(()=>sprintLatch),false);
  record("Keyboard: double Space toggles creative flight, double W sprints and release cancels");
@@ -158,12 +160,13 @@ try{
  assert.deepEqual(await page.evaluate(()=>[amount(2),drops.reduce((n,d)=>n+d.n,0)]),[0,65]);
  assert.equal(await page.evaluate(()=>drops.every(d=>d.pickupDelay===1.2)),true);
  record("Keyboard: F swaps hands, Q drops one and Ctrl Q drops up to 64");
+ await page.mouse.move(200,150);
  await page.evaluate(()=>{
   running=true;mode="creative";resetMotion();player.x=10.5;player.y=6;player.z=10.5;player.yaw=0;player.pitch=0;
   for(let z=11;z<16;z++)vox.set(10,7,z,0);
   vox.set(10,7,14,5);hotbar[0]=2;selected=0;
  });
- await page.mouse.click(480,320,{button:"middle"});
+ await page.mouse.click(200,150,{button:"middle"});
  assert.equal(await page.evaluate(()=>hotbar[selected]),5);
  await page.evaluate(()=>{mode="survival";hotbar[0]=3;bag={3:5};running=true;});
  await page.mouse.down({button:"right"});
@@ -203,6 +206,7 @@ try{
  });
  record("HUD toggles, adjustable FOV/sensitivity/inverted look and input reset");
  await page.evaluate(s=>{loadGame(s);running=false;resetControls();hudHidden=false;debugShown=false;
+  document.getElementById("view").style.width="";document.getElementById("view").style.height="";
   settings.fov=70;settings.sensitivity=1;settings.invertY=false;syncSettings();updateHud();
  },original);
  await page.waitForFunction(()=>dirty.size===0);
@@ -241,6 +245,13 @@ try{
  await page.waitForFunction(()=>meshes.size>0);
  assert.equal(await page.evaluate(()=>{render();return gl.getError();}),0);
  record("WebGL context restore rebuilds textures, buffers and cinematic render targets");
+ await page.evaluate(()=>{
+  mode="creative";player.y=H+21;player.x=30.5;player.z=30.5;flying=true;
+  moveAxis("y",20);
+  if(player.y>H+22.00001)throw Error("Flight exceeds save bounds");
+  hotbar[0]=3;selected=0;dropSelected();validate(snapshot());
+ });
+ record("Creative flight ceiling and thrown items remain within valid save bounds");
 
  await page.evaluate(s=>{if(!loadGame(s))throw Error("Restore failed");running=false;},original);
  const saved=await page.evaluate(()=>{
@@ -325,6 +336,19 @@ try{
  assert.equal(await touch.evaluate(()=>!!keys.ShiftLeft),false);
  await touch.locator("#hotbar button").nth(2).tap();
  assert.equal(await touch.evaluate(()=>selected),2);
+ await touch.evaluate(()=>{resetMotion();flying=false;player.y=6;mode="creative";});
+ await touch.tap("#jump");await touch.tap("#jump");
+ assert.equal(await touch.evaluate(()=>flying),true);
+ await touch.evaluate(()=>{
+  flying=false;mode="survival";hunger=10;bag={42:2};hotbar[selected]=42;
+  player.y=6;player.vy=0;resetMotion();running=true;
+ });
+ const use=await touch.locator("#use").boundingBox();
+ await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:use.x+use.width/2,y:use.y+use.height/2,id:3}]});
+ assert.deepEqual(await touch.evaluate(()=>{tickUse(1.61);return[amount(42),hunger];}),[1,14]);
+ await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+ assert.equal(await touch.evaluate(()=>!using&&eating===null),true);
+ record("Emulated mobile: double jump toggles flight, held Use eats and release clears action");
  assert.equal(await touch.evaluate(()=>scrollX===0&&scrollY===0),true);
  await touch.screenshot({path:"test-results/mobile.png"});
  record("Emulated mobile touch: movement, camera, release, hotbar selection, no page scroll");

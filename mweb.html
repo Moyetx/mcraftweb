@@ -524,9 +524,9 @@ function toggleFlight(){
  flying=!flying;player.vy=0;fallPeak=player.y;updateHud();
  toast(flying?"Vuelo activo · espacio subir · Shift bajar":"Vuelo desactivado");
 }
-function jumpPressed(){
- const now=performance.now();
- if(mode==="creative"&&now-lastJumpTap<280){toggleFlight();lastJumpTap=-Infinity;}
+function jumpPressed(now=performance.now()){
+ if(typeof now!=="number")now=now.timeStamp;
+ if(mode==="creative"&&now-lastJumpTap<350){toggleFlight();lastJumpTap=-Infinity;}
  else lastJumpTap=now;
  keys.Space=true;
 }
@@ -1011,6 +1011,7 @@ function wear(id){
  }
 }
 function collide(x,y,z,height=bodyHeight()){
+ if(y>H+22)return true;
  const e=1e-6;
  for(let a=Math.floor(x-PLAYER_RADIUS+e);a<=Math.floor(x+PLAYER_RADIUS-e);a++)
   for(let b=Math.floor(y+e);b<=Math.floor(y+height-e);b++)
@@ -1787,7 +1788,7 @@ function validate(s){
  if(s.version===2){
   const object=v=>v&&typeof v==="object"&&!Array.isArray(v);
   const pos=(x,y,z)=>Number.isFinite(x)&&x>=0&&x<N&&Number.isFinite(z)&&z>=0&&z<N&&
-   Number.isFinite(y)&&y>=-5&&y<=H+22;
+   Number.isFinite(y)&&y>=-5&&y<=H+26;
   if(![1,2].includes(s.terrainVersion)||typeof s.flying!=="boolean"||
      !Number.isFinite(s.breath)||s.breath<0||s.breath>10||
      !object(s.blockStates)||!object(s.mobWorlds)||!object(s.simulationWorlds)||
@@ -1939,10 +1940,10 @@ document.addEventListener("keydown",e=>{
  if(!running)return;
  if(["Space","KeyW","KeyA","KeyS","KeyD","ShiftLeft","ShiftRight","ControlLeft","ControlRight"].includes(e.code)){
   e.preventDefault();
-  if(e.code==="Space"&&!e.repeat)jumpPressed();
+  if(e.code==="Space"&&!e.repeat)jumpPressed(e.timeStamp);
   else keys[e.code]=true;
   if(e.code==="KeyW"&&!e.repeat){
-   const now=performance.now();if(now-lastForwardTap<280)sprintLatch=true;lastForwardTap=now;
+   const now=e.timeStamp;if(now-lastForwardTap<350)sprintLatch=true;lastForwardTap=now;
   }
  }
  if(/^Digit[1-9]$/.test(e.code)){selected=Number(e.code.slice(-1))-1;updateHud();}
@@ -2018,7 +2019,7 @@ function hold(id,on,off){
  const b=$(id);
  b.addEventListener("pointerdown",e=>{
   e.preventDefault();b.setPointerCapture(e.pointerId);
-  if(running)on();
+  if(running)on(e);
  });
  for(const event of["pointerup","pointercancel","lostpointercapture"])
   b.addEventListener(event,e=>{e.preventDefault();off();});
@@ -2652,6 +2653,7 @@ setupGL=function(){
  };
 
  program=link(`
+  precision ${gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT).precision>0?"highp":"mediump"} float;
   attribute vec3 aPos,aNormal;
   attribute vec2 aUV;
   attribute float aTile,aShade,aAlpha,aGlow,aKind;
@@ -2872,7 +2874,7 @@ render=function(){
  const sunVector=[Math.cos(phase),sunHeight,-.375],sunLength=Math.hypot(...sunVector);
  const sunDirection=sunVector.map(v=>v/sunLength);
  beginScene(w,h);gl.viewport(0,0,w,h);
- if(!postFailed)$("shaderstatus").textContent=settings.shaders===2?"Cinemático: luz cálida, reflejo del cielo en agua, vegetación y resplandor.":settings.shaders===1?"Suave: iluminación, agua animada y vegetación.":"Clásico: texturas nítidas y sombreado por caras.";
+ if(!postFailed||settings.shaders<2)$("shaderstatus").textContent=settings.shaders===2?"Cinemático: luz cálida, reflejo del cielo en agua, vegetación y resplandor.":settings.shaders===1?"Suave: iluminación, agua animada y vegetación.":"Clásico: texturas nítidas y sombreado por caras.";
  gl.depthMask(true);gl.clearColor(...fog,1);
  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
