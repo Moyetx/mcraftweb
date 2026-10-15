@@ -177,9 +177,9 @@ try{
   for(let z=11;z<16;z++)vox.set(10,7,z,0);
   vox.set(10,7,14,5);hotbar[0]=2;selected=0;
  });
- await page.mouse.click(200,150,{button:"middle"});
+ await page.mouse.down({button:"middle"});await page.mouse.up({button:"middle"});
  assert.equal(await page.evaluate(()=>hotbar[selected]),5);
- await page.evaluate(()=>{mode="survival";hotbar[0]=3;bag={3:5};running=true;});
+ await page.evaluate(()=>{mode="survival";hotbar[0]=3;selected=0;bag={3:5};running=true;});
  await page.mouse.down({button:"right"});
  const placed=await page.evaluate(()=>{
   tickUse(.21);tickUse(.21);
@@ -348,7 +348,14 @@ try{
  await touch.locator("#hotbar button").nth(2).tap();
  assert.equal(await touch.evaluate(()=>selected),2);
  await touch.evaluate(()=>{resetMotion();flying=false;player.y=6;mode="creative";});
- await touch.tap("#jump");await touch.tap("#jump");
+ const jump=await touch.locator("#jump").boundingBox(),jumpAt=Date.now()/1000;
+ const jumpPoint={x:jump.x+jump.width/2,y:jump.y+jump.height/2,id:4};
+ await Promise.all([
+  {type:"touchStart",touchPoints:[jumpPoint],timestamp:jumpAt},
+  {type:"touchEnd",touchPoints:[],timestamp:jumpAt+.04},
+  {type:"touchStart",touchPoints:[jumpPoint],timestamp:jumpAt+.1},
+  {type:"touchEnd",touchPoints:[],timestamp:jumpAt+.14}
+ ].map(event=>cdp.send("Input.dispatchTouchEvent",event)));
  assert.equal(await touch.evaluate(()=>flying),true);
  await touch.evaluate(()=>{
   flying=false;mode="survival";hunger=10;bag={42:2};hotbar[selected]=42;
