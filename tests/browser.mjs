@@ -132,6 +132,116 @@ try{
   return out;
  });
  physics.forEach(name=>record(name));
+ // Exercise the actual keyboard and pointer event handlers against a controlled world.
+ await page.evaluate(()=>{
+  mode="creative";running=true;menuOpen=false;invOpen=false;flying=false;
+  player={x:30.5,y:6,z:30.5,yaw:0,pitch:0,vy:0};resetMotion();
+ });
+ await page.keyboard.press("Space");await page.keyboard.press("Space");
+ assert.equal(await page.evaluate(()=>flying),true);
+ await page.waitForTimeout(300);
+ await page.keyboard.press("Space");await page.keyboard.press("Space");
+ assert.equal(await page.evaluate(()=>flying),false);
+ await page.keyboard.press("w");await page.keyboard.down("w");
+ await page.waitForTimeout(100);
+ assert.equal(await page.evaluate(()=>sprinting&&sprintLatch),true);
+ await page.keyboard.up("w");
+ assert.equal(await page.evaluate(()=>sprintLatch),false);
+ record("Keyboard: double Space toggles creative flight, double W sprints and release cancels");
+ await page.evaluate(()=>{
+  running=true;mode="survival";hotbar[0]=2;selected=0;offhand=0;bag={2:65};drops=[];
+ });
+ await page.keyboard.press("f");
+ assert.deepEqual(await page.evaluate(()=>[hotbar[0],offhand]),[0,2]);
+ await page.keyboard.press("f");
+ await page.keyboard.press("q");await page.keyboard.press("Control+q");
+ assert.deepEqual(await page.evaluate(()=>[amount(2),drops.reduce((n,d)=>n+d.n,0)]),[0,65]);
+ assert.equal(await page.evaluate(()=>drops.every(d=>d.pickupDelay===1.2)),true);
+ record("Keyboard: F swaps hands, Q drops one and Ctrl Q drops up to 64");
+ await page.evaluate(()=>{
+  running=true;mode="creative";resetMotion();player.x=10.5;player.y=6;player.z=10.5;player.yaw=0;player.pitch=0;
+  for(let z=11;z<16;z++)vox.set(10,7,z,0);
+  vox.set(10,7,14,5);hotbar[0]=2;selected=0;
+ });
+ await page.mouse.click(480,320,{button:"middle"});
+ assert.equal(await page.evaluate(()=>hotbar[selected]),5);
+ await page.evaluate(()=>{mode="survival";hotbar[0]=3;bag={3:5};running=true;});
+ await page.mouse.down({button:"right"});
+ const placed=await page.evaluate(()=>{
+  tickUse(.21);tickUse(.21);
+  const result=[get(10,7,13),get(10,7,12),get(10,7,11),amount(3)];
+  return result;
+ });
+ await page.mouse.up({button:"right"});
+ assert.deepEqual(placed,[3,3,3,2]);
+ assert.equal(await page.evaluate(()=>using),false);
+ record("Mouse: middle click picks block; held right click repeats placement and release stops");
+ await page.evaluate(()=>{
+  running=true;hotbar[0]=42;bag={42:2};hunger=10;offhand=0;
+ });
+ await page.mouse.down({button:"right"});
+ assert.equal(await page.evaluate(()=>{tickUse(.5);return amount(42);}),2);
+ await page.mouse.up({button:"right"});
+ assert.equal(await page.evaluate(()=>eating===null),true);
+ await page.mouse.down({button:"right"});
+ assert.deepEqual(await page.evaluate(()=>{tickUse(1.61);return[amount(42),hunger];}),[1,14]);
+ await page.mouse.up({button:"right"});
+ await page.evaluate(()=>{
+  running=true;hotbar[0]=0;offhand=42;hunger=10;bag={42:1};beginUse();tickUse(1.61);endUse();
+  const s=snapshot();validate(s);if(s.offhand!==42||s.hotbar[0]!==0||hunger!==14)throw Error("Offhand use/save failed");
+ });
+ record("Held use: eating takes time, release cancels, offhand works and is saved");
+ await page.keyboard.press("F1");
+ assert.equal(await page.evaluate(()=>hudHidden&&document.getElementById("hud").style.display==="none"),true);
+ await page.keyboard.press("F1");await page.keyboard.press("F3");
+ assert.equal(await page.evaluate(()=>debugShown&&document.getElementById("info").style.display==="block"),true);
+ await page.evaluate(()=>{
+  settings.sensitivity=1.5;settings.invertY=true;settings.fov=85;saveSettings();syncSettings();
+  player.yaw=0;player.pitch=0;look(100,100);
+  if(Math.abs(player.yaw+.45)>1e-5||Math.abs(player.pitch+.45)>1e-5)throw Error("Look settings ignored");
+  resetControls();if(using||mining||keys.Space)throw Error("Stuck input");
+ });
+ record("HUD toggles, adjustable FOV/sensitivity/inverted look and input reset");
+ await page.evaluate(s=>{loadGame(s);running=false;resetControls();hudHidden=false;debugShown=false;
+  settings.fov=70;settings.sensitivity=1;settings.invertY=false;syncSettings();updateHud();
+ },original);
+ await page.waitForFunction(()=>dirty.size===0);
+ const profiles=[];
+ for(const profile of[0,1,2]){
+  profiles.push(await page.evaluate(profile=>{
+   setShaderProfile(profile);render();
+   const p=new Uint8Array(gl.canvas.width*gl.canvas.height*4);
+   gl.readPixels(0,0,gl.canvas.width,gl.canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,p);
+   let hash=2166136261;for(let i=0;i<p.length;i+=4)hash=Math.imul(hash^p[i]^p[i+1]^p[i+2],16777619);
+   const error=gl.getError();return{...window.voxelGraphics.diagnostics(),hash,error};
+  },profile));
+  await page.screenshot({path:"test-results/shader-"+profile+".png"});
+ }
+ assert(profiles.every(p=>p.error===0&&p.stride===52));
+ assert.equal(profiles[0].framebuffer,false);assert.equal(profiles[1].framebuffer,false);
+ assert.equal(profiles[2].postActive,true);assert.equal(profiles[2].postFailed,false);
+ assert.equal(new Set(profiles.map(p=>p.hash)).size,3);
+ record("Three real shader profiles render distinct pixels, cinematic framebuffer complete, no WebGL errors",{profiles});
+ const shaderPreview=await page.screenshot({type:"jpeg",quality:55});
+ console.log("SHADER_JPEG:"+shaderPreview.toString("base64"));
+ await page.evaluate(()=>{
+  const before={...player};const oldDay=day,oldTimer=timer;
+  for(let x=8;x<=14;x++)for(let z=14;z<=20;z++)vox.set(x,24,z,8);
+  player={x:11.5,y:26,z:11.5,yaw:0,pitch:.65,vy:0};day=150;buildChunk(0,0);buildChunk(0,1);render();
+  if(gl.getError())throw Error("Water shader error");
+  timer+=2;day=450;render();if(gl.getError())throw Error("Night shader error");
+  player=before;day=oldDay;timer=oldTimer;
+ });
+ record("Water normals/reflection and day/night shader paths render without GL errors");
+ await page.evaluate(()=>{
+  const ext=gl.getExtension("WEBGL_lose_context");if(!ext)throw Error("Context-loss extension unavailable");
+  ext.loseContext();setTimeout(()=>ext.restoreContext(),150);
+ });
+ await page.waitForFunction(()=>!gl.isContextLost()&&menuOpen,{},{timeout:15000});
+ await page.waitForFunction(()=>meshes.size>0);
+ assert.equal(await page.evaluate(()=>{render();return gl.getError();}),0);
+ record("WebGL context restore rebuilds textures, buffers and cinematic render targets");
+
  await page.evaluate(s=>{if(!loadGame(s))throw Error("Restore failed");running=false;},original);
  const saved=await page.evaluate(()=>{
   mode="survival";running=false;
@@ -147,6 +257,7 @@ try{
  await page.close();
  page=await ctx.newPage();monitor(page);await page.goto(base+"/mweb.html");
  await page.waitForFunction(()=>!document.getElementById("continue").disabled);
+ assert.equal(await page.evaluate(()=>settings.shaders),2);
  await page.click("#continue");
  await page.waitForFunction(()=>started);
  const recovered=await page.evaluate(()=>{
