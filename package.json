@@ -1,0 +1,15 @@
+{
+  "name": "voxel-atlas",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node tests/browser.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.51.1",
+    "wabt": "1.0.37"
+  }
+}
