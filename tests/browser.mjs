@@ -132,6 +132,17 @@ try{
   return out;
  });
  physics.forEach(name=>record(name));
+ // Send timestamped native input in a batch: software rendering must not stretch double taps.
+ const keyboardCDP=await ctx.newCDPSession(page);
+ const doubleKey=async(code,key,vk,holdLast=false)=>{
+  const at=Date.now()/1000,events=[
+   {type:"keyDown",timestamp:at},{type:"keyUp",timestamp:at+.04},
+   {type:"keyDown",timestamp:at+.10},...(!holdLast?[{type:"keyUp",timestamp:at+.14}]:[])
+  ];
+  await Promise.all(events.map(event=>keyboardCDP.send("Input.dispatchKeyEvent",{
+   ...event,code,key,windowsVirtualKeyCode:vk,nativeVirtualKeyCode:vk
+  })));
+ };
  // Exercise the actual keyboard and pointer event handlers against a controlled world.
  await page.evaluate(()=>{
   settings.shaders=0;viewDistance=32;
@@ -139,12 +150,12 @@ try{
   mode="creative";running=true;menuOpen=false;invOpen=false;flying=false;
   player={x:30.5,y:6,z:30.5,yaw:0,pitch:0,vy:0};resetMotion();
  });
- await page.keyboard.press("Space");await page.keyboard.press("Space");
- assert.equal(await page.evaluate(()=>flying),true);
+ await doubleKey("Space"," ",32);
+ assert.deepEqual(await page.evaluate(()=>({flying,running,mode,lastJumpTap})),{flying:true,running:true,mode:"creative",lastJumpTap:-Infinity});
  await page.waitForTimeout(300);
- await page.keyboard.press("Space");await page.keyboard.press("Space");
+ await doubleKey("Space"," ",32);
  assert.equal(await page.evaluate(()=>flying),false);
- await page.keyboard.press("w");await page.keyboard.down("w");
+ await doubleKey("KeyW","w",87,true);
  await page.waitForFunction(()=>sprinting,{},{timeout:3000});
  assert.deepEqual(await page.evaluate(()=>({running,sprinting,sprintLatch,key:keys.KeyW})),{running:true,sprinting:true,sprintLatch:true,key:true});
  await page.keyboard.up("w");

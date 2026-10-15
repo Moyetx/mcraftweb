@@ -1928,12 +1928,13 @@ document.querySelectorAll("[data-dim]").forEach(b=>{
  };
 });
 document.addEventListener("keydown",e=>{
- if(e.metaKey||["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName))return;
+ if(e.metaKey)return;
  if(e.code==="Escape"&&!e.repeat){
   if(invOpen)closeInventory();
   else if(started&&performance.now()-lastUnlock>180){if(menuOpen)resumeGame();else pauseGame();}
   return;
  }
+ if(["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName))return;
  if(e.code==="KeyE"&&started&&!e.repeat){
   e.preventDefault();if(invOpen)closeInventory();else if(!menuOpen)openInventory();return;
  }
@@ -2874,7 +2875,10 @@ render=function(){
  const sunVector=[Math.cos(phase),sunHeight,-.375],sunLength=Math.hypot(...sunVector);
  const sunDirection=sunVector.map(v=>v/sunLength);
  beginScene(w,h);gl.viewport(0,0,w,h);
- if(!postFailed||settings.shaders<2)$("shaderstatus").textContent=settings.shaders===2?"Cinemático: luz cálida, reflejo del cielo en agua, vegetación y resplandor.":settings.shaders===1?"Suave: iluminación, agua animada y vegetación.":"Clásico: texturas nítidas y sombreado por caras.";
+ if(!postFailed||settings.shaders<2){
+  const status=settings.shaders===2?"Cinemático: luz cálida, reflejo del cielo en agua, vegetación y resplandor.":settings.shaders===1?"Suave: iluminación, agua animada y vegetación.":"Clásico: texturas nítidas y sombreado por caras.";
+  if($("shaderstatus").textContent!==status)$("shaderstatus").textContent=status;
+ }
  gl.depthMask(true);gl.clearColor(...fog,1);
  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
